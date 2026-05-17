@@ -1,7 +1,7 @@
 import environment from "../environment"
 
 export interface OPAInput {
-  user: string // user ID — looked up in data.user_attributes by OPA
+  user: string
   agentId: string
   tools: string[]
   credentials: Record<string, string>
@@ -25,9 +25,7 @@ export async function checkAgentPolicy(input: OPAInput): Promise<OPADecision> {
   })
 
   if (!response.ok) {
-    throw new Error(
-      `OPA policy check failed: ${response.status} ${response.statusText}`
-    )
+    throw new Error(`Failed to check ${response.status} ${response.statusText}`)
   }
 
   const body = (await response.json()) as {
