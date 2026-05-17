@@ -68,6 +68,7 @@ export interface ChatConversationRequest extends Document {
   isPreview?: boolean
   sessionId?: string
   channel?: ChatConversationChannel
+  credentials?: Record<string, string>
 }
 
 export interface WebhookChatCompleteResult {

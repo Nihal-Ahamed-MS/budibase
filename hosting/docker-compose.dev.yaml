@@ -61,6 +61,21 @@ services:
     volumes:
       - redis_data:/data
 
+  opa-service:
+    container_name: budi-opa-dev
+    restart: on-failure
+    image: openpolicyagent/opa:latest-static
+    ports:
+      - "${OPA_PORT:-8181}:8181"
+    volumes:
+      - ./opa/policies:/policies
+    command: run --server --addr :8181 --log-level=info /policies
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 http://localhost:8181/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   litellm-service:
     container_name: budi-litellm-dev
     image: ghcr.io/berriai/litellm:main-v1.83.10-stable

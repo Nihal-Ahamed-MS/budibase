@@ -1,3 +1,4 @@
+export * as opaAgent from "./opa-agent/opa"
 export * as configs from "./configs"
 export * as events from "./events"
 export * as users from "./users"
