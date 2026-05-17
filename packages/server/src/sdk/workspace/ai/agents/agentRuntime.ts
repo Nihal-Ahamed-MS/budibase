@@ -1,3 +1,4 @@
+import { opaAgent } from "@budibase/backend-core"
 import { ai, quotas } from "@budibase/pro"
 import {
   ActionType,
@@ -18,6 +19,7 @@ import {
 import sdk from "../../.."
 import { createSessionLogIndexer } from "../agentLogs"
 import {
+  extractUserText,
   findLatestUserQuestion,
   prepareModelMessages,
 } from "../chatConversations"
@@ -53,6 +55,22 @@ export interface AgentChatRun {
 export interface AgentChatStreamOptions {
   onFinish?: (responseId?: string) => void | Promise<void>
   pendingToolCalls?: Set<string>
+}
+
+const CREDENTIAL_PROMPT =
+  'Before doing anything else, ask the user: "Please enter your access code to continue."'
+
+const extractCodeFromMessages = (
+  messages: ChatConversationRequest["messages"]
+): Record<string, string> => {
+  for (const msg of messages) {
+    if (msg.role !== "user") continue
+    const text = extractUserText(msg as Parameters<typeof extractUserText>[0])
+    if (/^\d+$/.test(text.trim())) {
+      return { code: text.trim() }
+    }
+  }
+  return {}
 }
 
 export const prepareAgentChatRun = async ({
@@ -108,6 +126,33 @@ export const prepareAgentChatRun = async ({
     tools.report_used_sources = reportUsedSourcesTool
   }
 
+  const credentials = chat.credentials ?? extractCodeFromMessages(chat.messages)
+  const hasCredentials = Object.keys(credentials).length > 0
+
+  let instructions = promptAndTools.systemPrompt || ""
+
+  if (!hasCredentials) {
+    for (const toolName of Object.keys(tools)) {
+      delete tools[toolName]
+    }
+    instructions = `${CREDENTIAL_PROMPT}\n\n${instructions}`
+  } else {
+    const decision = await opaAgent.checkAgentPolicy({
+      user: user.userId ?? user.globalId ?? "",
+      agentId,
+      tools: Object.keys(tools),
+      credentials,
+    })
+    if (!decision.allow) {
+      throw new Error("Access denied: invalid access code")
+    }
+    for (const toolName of Object.keys(tools)) {
+      if (!decision.allowedTools.includes(toolName)) {
+        delete tools[toolName]
+      }
+    }
+  }
+
   const hasTools = Object.keys(tools).length > 0
   const agentRunner = new ToolLoopAgent({
     model: wrapLanguageModel({
@@ -116,7 +161,7 @@ export const prepareAgentChatRun = async ({
         tagName: "think",
       }),
     }),
-    instructions: promptAndTools.systemPrompt || undefined,
+    instructions: instructions || undefined,
     tools: hasTools ? tools : undefined,
     toolChoice: hasTools ? "auto" : "none",
     stopWhen: stepCountIs(30),

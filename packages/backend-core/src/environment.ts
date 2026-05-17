@@ -161,6 +161,7 @@ const environment = {
     : undefined,
   ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
   API_ENCRYPTION_KEY: getAPIEncryptionKey(),
+  OPA_URL: process.env.OPA_URL,
   COUCH_DB_URL: process.env.COUCH_DB_URL || "http://localhost:4005",
   COUCH_DB_SQL_URL: process.env.COUCH_DB_SQL_URL,
   COUCH_DB_USERNAME: process.env.COUCH_DB_USER,
